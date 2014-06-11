@@ -251,6 +251,8 @@ public class TestEpamms
 		   //:mSPLDef.ContinuationStatement.Text  = "Text 1"
 		   SetAttributeFromString( mSPLDef, "ContinuationStatement", "Text", "Text 1" );
 
+		   // ContinuationStatement is set correctly if I set cursor on the parent.
+		   //RESULT = SetCursorLastEntity( mSPLDef2, "LLD_Panel", "" );
 		   RESULT = SetCursorFirstEntity( mSPLDef2, "ContinuationStatement", "" );
            Assert.assertEquals( "ContinuationStatement doesn't exist 2", 0, RESULT );
            /*
