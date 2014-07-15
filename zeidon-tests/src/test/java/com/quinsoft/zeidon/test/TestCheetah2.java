@@ -48,6 +48,16 @@ public class TestCheetah2
 	}
 
 	@Test
+	public void testDateCompare()
+	{
+	    View         testview;
+		testview = cheetah.activateEmptyObjectInstance( "mUser" );
+		VmlTester tester = new VmlTester( testview );
+		tester.testDateCompare( testview );
+        System.out.println("===== Finished testDateCompare ========");
+	}
+
+	@Test
 	public void testOrderEntity()
 	{
 	    View         testview;
@@ -84,6 +94,31 @@ public class TestCheetah2
 		{
 			super( view );
 		}
+
+        public int
+        testDateCompare( View     ViewToWindow)
+        {
+    		//zVIEW    mPerson = new zVIEW( );
+			zVIEW    wXferO = new zVIEW( );
+			zVIEW    vTempViewVar_0 = new zVIEW( );
+			int RESULT=0;
+
+		    RESULT = ActivateEmptyObjectInstance( wXferO, "wXferO", ViewToWindow, zSINGLE );
+		    //:CREATE ENTITY wXferO.Root
+		    RESULT = CreateEntity( wXferO, "Root", zPOS_AFTER );
+		    //:NAME VIEW wXferO "wXferO"
+		    SetNameForView( wXferO, "wXferO", null, zLEVEL_TASK );
+
+		    //IF mApplcnt.ContactLog.ContactDate != wXferO.Root.dCurrentDate 
+
+		       String dateStr = wXferO.cursor("Root").getStringFromAttribute("dCurrentDate");
+
+		       SetAttributeFromAttribute( wXferO, "Root", "WorkDate", wXferO, "Root", "dCurrentDate" );
+	           Assert.assertEquals( "Date Compare should be equal.", 0, CompareAttributeToAttribute( wXferO, "Root", "WorkDate", wXferO, "Root", "dCurrentDate" ) );
+   			DropView( wXferO );
+
+			return 0;
+       }
 
         public int
         testEntityDeleteParentBehavior( View     ViewToWindow)
