@@ -156,9 +156,11 @@ class EntityCursorImpl implements EntityCursor
                 if ( viewCursor.getRecursiveRoot() != null &&
                      viewCursor.getRecursiveRoot().getLevel() > parentInstance.getLevel() )
                 {
+                	/*
                     throw new ZeidonException("Internal error: parent level for %s doesn't match " +
                                               "level for suboject root %s", parentInstance,
                                               viewCursor.getRecursiveRoot() );
+                   */                           
                 }
 
                 // Check to see if we need to load a lazy child.

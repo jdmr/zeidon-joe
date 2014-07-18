@@ -24,12 +24,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeComparator;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import com.quinsoft.zeidon.Application;
 import com.quinsoft.zeidon.Blob;
 import com.quinsoft.zeidon.EntityCursor;
 import com.quinsoft.zeidon.EntityInstance;
 import com.quinsoft.zeidon.InvalidAttributeValueException;
+import com.quinsoft.zeidon.ObjectEngine;
 import com.quinsoft.zeidon.Task;
 import com.quinsoft.zeidon.View;
 import com.quinsoft.zeidon.ZeidonException;
@@ -55,7 +59,9 @@ public class AltDateDomain extends DateDomain
     @Override
     public int compare(Task task, ViewAttribute viewAttribute, Object internalValue, Object externalValue)
     {
-    	Object value = null;
+        DateTimeFormatter dDateFormatter = DateTimeFormat.forPattern( ObjectEngine.INTERNAL_DATE_STRING_FORMAT );
+
+        Object value = null;
         
     	try
     	{
@@ -93,6 +99,10 @@ public class AltDateDomain extends DateDomain
             {
                 assert internalValue.getClass() == value.getClass();
                 
+                // KJS 07/18/14 - When we are comparing Dates (as opposed to DateTime) we don't
+                // want to compare with the Time portion (which is what internalValue and value have).
+                // Only compare the Date portion.
+                //return DateTimeComparator.getDateOnlyInstance().compare(internalValue, value);                
                 @SuppressWarnings("unchecked")
                 Comparable<Object> c = (Comparable<Object>) internalValue;
                 return c.compareTo( value );

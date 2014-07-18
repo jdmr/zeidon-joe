@@ -758,6 +758,16 @@ public class TestZencas
 	}
 
 	@Test
+	public void testDateCompare()
+	{
+	    View         testview;
+		testview = zencas.activateEmptyObjectInstance( "mStudent" );
+		VmlTester tester = new VmlTester( testview );
+		tester.testDateCompare( testview );
+        System.out.println("===== Finished testDateCompare ========");
+	}
+
+	@Test
 	public void testSpawning1()
 	{
 	    View         testview;
@@ -2451,6 +2461,33 @@ public class TestZencas
 		}
 
 		public int
+		testDateCompare( View     ViewToWindow )
+		{
+		    zVIEW    wXferO = new zVIEW( );
+		    int RESULT = 0;
+		    String szSort = "";
+
+		    RESULT = ActivateEmptyObjectInstance( wXferO, "wXferO", ViewToWindow, zSINGLE );
+		    RESULT = CreateEntity( wXferO, "Root", zPOS_AFTER );
+			SetNameForView( wXferO, "wXferO", null, zLEVEL_TASK );
+		    
+		    SetAttributeFromAttribute( wXferO, "Root", "WorkDate", wXferO, "Root", "dCurrentDate" );
+	    
+    		Assert.assertEquals("Date Compare on equal dates is wrong.", 0, CompareAttributeToAttribute( wXferO, "Root", "WorkDate", wXferO, "Root", "dCurrentDate" ) );
+
+		    SetAttributeFromString( wXferO, "Root", "WorkDate", "06/06/2000" );
+		    
+    		Assert.assertEquals("Date Compare is not working correctly.", -1, CompareAttributeToAttribute( wXferO, "Root", "WorkDate", wXferO, "Root", "dCurrentDate" ) );
+			
+		    SetAttributeFromString( wXferO, "Root", "WorkDate", "06/06/2020" );
+		    
+    		Assert.assertEquals("Date Compare is not working correctly.", 1, CompareAttributeToAttribute( wXferO, "Root", "WorkDate", wXferO, "Root", "dCurrentDate" ) );
+			
+			
+		    return ( 0 );
+		}
+
+		public int
 		testDatesTimes( View     ViewToWindow )
 		{
 			zVIEW    mUser = new zVIEW( );
@@ -2788,7 +2825,7 @@ public class TestZencas
 		   }
 
 		   //:IF mFAProf.FinAidAwardDisbursement.ID != 88634
-           Assert.assertEquals("Invalid Set Cursor Subobject on DisbursementDate and AppliedToAccount", CompareAttributeToInteger( mFAProf, "FinAidAwardDisbursement", "ID", 88634 ), 0);
+           Assert.assertEquals("Invalid Set Cursor on DisbursementDate and AppliedToAccount", CompareAttributeToInteger( mFAProf, "FinAidAwardDisbursement", "ID", 88634 ), 0);
 //		   if ( CompareAttributeToInteger( mFAProf, "FinAidAwardDisbursement", "ID", 88634 ) != 0 )
 //		   {
 //		      //:IssueError( ViewToWindow,0,0, "Invalid Set Cursor Subobject on DisbursementDate and AppliedToAccount" )

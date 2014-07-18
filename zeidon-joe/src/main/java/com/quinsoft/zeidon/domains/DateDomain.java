@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeComparator;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -83,6 +84,39 @@ public class DateDomain extends AbstractDomain
                                                   this.getClass().getName(), contextName );
     }
 
+    
+    @Override
+    public int compare(Task task, ViewAttribute viewAttribute, Object internalValue, Object externalValue)
+    {
+        
+        try
+        {
+        	// Had to add this so that value.getClass is DateTime.
+            Object value = convertExternalValue( task, viewAttribute, null, externalValue );
+            Integer rc = compareNull( task, viewAttribute, internalValue, value);
+            if ( rc != null )
+                return rc;
+            
+            if ( internalValue instanceof Comparable )
+            {
+                assert internalValue.getClass() == value.getClass();
+                
+                // KJS 07/18/14 - When we are comparing Dates (as opposed to DateTime) we don't
+                // want to compare with the Time portion (which is what internalValue and value have).
+                // Only compare the Date portion.
+                return DateTimeComparator.getDateOnlyInstance().compare(internalValue, value);                
+            }
+            
+            DomainContext context = getContext( task, null ); // Get the default context.
+            return context.compare( task, internalValue, value );
+        }
+        catch ( Throwable t )
+        {
+            throw ZeidonException.wrapException( t ).prependViewAttribute( viewAttribute );
+        }
+
+   }
+    
     /**
      * Attempt to get the context.  This differs from the normal getContext() by attempting to create
      * a SimpleDateFormatter using the contextName as the format if a context is not found by name.
