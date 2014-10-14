@@ -4,3 +4,5 @@ tmp/
 *.bak
 *.bat
 .tmpclasspath
+nb-configuration.xml
+nbactions.xml

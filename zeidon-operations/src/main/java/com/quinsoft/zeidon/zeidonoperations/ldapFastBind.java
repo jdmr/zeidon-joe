@@ -89,10 +89,12 @@ public class ldapFastBind
  
 		catch (AuthenticationException e) {
 			System.out.println(username + " is not authenticated");
+                    e.printStackTrace();
 			return false;
 		}
 		catch (NamingException e) {
 			System.out.println(username + " is not authenticated");
+                    e.printStackTrace();
 			return false;
 		}
 	}
