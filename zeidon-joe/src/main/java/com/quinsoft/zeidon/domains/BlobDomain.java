@@ -22,6 +22,7 @@ package com.quinsoft.zeidon.domains;
 import java.util.Map;
 
 import com.quinsoft.zeidon.Application;
+import com.quinsoft.zeidon.AttributeInstance;
 import com.quinsoft.zeidon.Blob;
 import com.quinsoft.zeidon.InvalidAttributeValueException;
 import com.quinsoft.zeidon.Task;
@@ -39,7 +40,7 @@ public class BlobDomain extends AbstractDomain
     }
 
     @Override
-    public Object convertExternalValue(Task task, AttributeDef attributeDef, String contextName, Object externalValue)
+    public Object convertExternalValue(Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, String contextName, Object externalValue)
     {
         if ( externalValue instanceof byte[] )
             return new Blob( (byte[]) externalValue );
@@ -59,7 +60,7 @@ public class BlobDomain extends AbstractDomain
         @SuppressWarnings("unused")
         Blob blob = (Blob) internalValue;
         
-        //TODO: Should blobs have a max value?  The length defined in the AttributeDef is the number of bytes
+        //TODO: Should blobs have a max value?  The length defined in the attributeDef is the number of bytes
         // the old C OE needed to store a blob pointer.
 //        if ( blob.getBytes().length > attributeDef.getLength() )
 //            throw new InvalidAttributeValueException( attributeDef, value,

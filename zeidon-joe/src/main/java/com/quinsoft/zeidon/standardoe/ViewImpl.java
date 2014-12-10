@@ -121,7 +121,7 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
 
     ViewImpl( ObjectInstance oi )
     {
-        super(oi.getTask().getApplication());
+        super(oi.getLodDef().getApplication());
         task = oi.getTask();
         this.lodDef = oi.getLodDef();
         id = task.getObjectEngine().getNextObjectKey();
@@ -318,13 +318,13 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
     @Override
     public void writeOiToXml(String filename, EnumSet<WriteOiFlags> control )
     {
-        serializeOi().asXml().setFlags( control ).toFile( filename ).write();
+        serializeOi().asXml().setFlags( control ).toFile( filename );
     }
 
     @Override
     public void writeOiToFile(String filename, EnumSet<WriteOiFlags> control)
     {
-        serializeOi().setFlags( control ).toFile( filename ).write();
+        serializeOi().setFlags( control ).toFile( filename );
     }
 
     @Override
@@ -335,7 +335,7 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
         {
             ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
             stream = new OutputStreamWriter( byteArray );
-            serializeOi().setFlags( control ).toWriter( stream ).write();
+            serializeOi().setFlags( control ).toWriter( stream );
             return new Blob( byteArray.toByteArray() );
         }
         finally
@@ -744,6 +744,15 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
     }
 
     /* (non-Javadoc)
+     * @see com.quinsoft.zeidon.View#createSelectSet()
+     */
+    @Override
+    public SelectSet createSelectSet()
+    {
+        return new SelectSetImpl( this );
+    }
+
+    /* (non-Javadoc)
      * @see com.quinsoft.zeidon.View#getSelectSet()
      */
     @Override
@@ -764,7 +773,7 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
         SelectSet set = selectSets.get( index );
         if ( set == null )
         {
-            set = new SelectSetImpl( this );
+            set = createSelectSet();
             selectSets.put( index, set );
         }
 
@@ -916,7 +925,7 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
     @Override
     public void writeOi( Writer writer, EnumSet<WriteOiFlags> flags )
     {
-        serializeOi().setFlags( flags ).toWriter( writer ).write();
+        serializeOi().setFlags( flags ).toWriter( writer );
     }
 
     @Override
@@ -1004,9 +1013,15 @@ class ViewImpl extends AbstractTaskQualification implements InternalView, Compar
         return getObjectInstance().isLocked();
     }
 
-    @Override
+ //   @Override
     public void close() throws Exception
     {
         drop();
+    }
+
+    @Override
+    public int getEntityCount( boolean includeHidden )
+    {
+        return getObjectInstance().getEntityCount( includeHidden );
     }
 }

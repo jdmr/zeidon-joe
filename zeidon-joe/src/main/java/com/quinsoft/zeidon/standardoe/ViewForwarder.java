@@ -183,6 +183,15 @@ public abstract class ViewForwarder extends AbstractTaskQualification implements
     }
 
     /* (non-Javadoc)
+     * @see com.quinsoft.zeidon.View#createSelectSet()
+     */
+    @Override
+    public SelectSet createSelectSet()
+    {
+        return getView().createSelectSet();
+    }
+
+    /* (non-Javadoc)
      * @see com.quinsoft.zeidon.View#getSelectSet()
      */
     @Override
@@ -620,9 +629,15 @@ public abstract class ViewForwarder extends AbstractTaskQualification implements
         return getView().isLocked();
     }
 
-    @Override
+//    @Override
     public void close() throws Exception
     {
         getView().drop();
+    }
+
+    @Override
+    public int getEntityCount( boolean includeHidden )
+    {
+        return getView().getEntityCount( includeHidden );
     }
 }

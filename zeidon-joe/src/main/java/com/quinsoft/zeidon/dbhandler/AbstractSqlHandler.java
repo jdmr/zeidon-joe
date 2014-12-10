@@ -50,6 +50,7 @@ import com.quinsoft.zeidon.objectdefinition.AttributeDef;
 import com.quinsoft.zeidon.objectdefinition.DataField;
 import com.quinsoft.zeidon.objectdefinition.DataRecord;
 import com.quinsoft.zeidon.objectdefinition.EntityDef;
+import com.quinsoft.zeidon.objectdefinition.LodDef;
 import com.quinsoft.zeidon.objectdefinition.RelField;
 import com.quinsoft.zeidon.objectdefinition.RelRecord;
 import com.quinsoft.zeidon.objectdefinition.RelRecord.RelationshipType;
@@ -237,9 +238,9 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
      * @param dataField
      * @param entityInstance
      */
-    void getAttributeValue(SqlStatement stmt, StringBuilder buffer, DataField dataField, EntityInstance entityInstance)
+    void getAttributeValue(SqlStatement stmt, StringBuilder buffer, DataField dataField, EntityInstance entityInstance, boolean ignoreBind )
     {
-        if ( isBindAllValues() )
+        if ( ignoreBind == false && isBindAllValues() )
         {
             // There can be multiple INSERT statements for a single SQL command.  We need to bind the attribute
             // value instead of the data field.
@@ -257,6 +258,11 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         AttributeDef attributeDef = dataField.getAttributeDef();
         Object value = entityInstance.getInternalAttributeValue( attributeDef );
         getSqlValue( stmt, attributeDef.getDomain(), attributeDef, buffer, value );
+    }
+
+    void getAttributeValue(SqlStatement stmt, StringBuilder buffer, DataField dataField, EntityInstance entityInstance )
+    {
+        getAttributeValue( stmt, buffer, dataField, entityInstance, false );
     }
 
     protected Task getTask()
@@ -392,7 +398,12 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         }
     }
 
-    private void verifyQualificationObject( View view )
+    /**
+     * Parses the qualification object and puts the information in the qualMap.
+     * The
+     * @param view
+     */
+    private void loadQualificationObject( LodDef lodDef )
     {
         qualMap = new HashMap<EntityDef, QualEntity>();
         if ( qual == null )
@@ -407,7 +418,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
             if ( StringUtils.isBlank( entityName ) )
                 throw new ZeidonException("Qualification view is missing entity name in EntitySpec" );
 
-            EntityDef entityDef = view.getLodDef().getEntityDef( entityName );
+            EntityDef entityDef = lodDef.getEntityDef( entityName );
             QualEntity qualEntity = new QualEntity( entitySpec, entityDef );
             qualMap.put( entityDef, qualEntity );
 
@@ -441,7 +452,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
                 if ( ! qualAttribInstance.isAttributeNull( "EntityName"  ) )
                 {
                     String qualEntityName = qualAttribInstance.getStringFromAttribute( "EntityName" );
-                    qualAttrib.entityDef = view.getLodDef().getEntityDef( qualEntityName );
+                    qualAttrib.entityDef = lodDef.getEntityDef( qualEntityName );
 
                     if ( qualAttrib.entityDef.isDerived() || qualAttrib.entityDef.isDerivedPath() ||
                          qualAttrib.entityDef.getDataRecord() == null )
@@ -469,21 +480,21 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
                     else
                         qualAttrib.oper = "=";
 
-                    qualAttrib.AttributeDef = qualAttrib.entityDef.getKeys().get( 0 );
+                    qualAttrib.attributeDef = qualAttrib.entityDef.getKeys().get( 0 );
                 }
 
                 //
                 // Verify AttribName
                 //
-                if ( ! qualAttribInstance.isAttributeNull( "AttributeName"  ) || qualAttrib.AttributeDef != null )
+                if ( ! qualAttribInstance.isAttributeNull( "AttributeName"  ) || qualAttrib.attributeDef != null )
                 {
-                    if ( qualAttrib.AttributeDef == null )
+                    if ( qualAttrib.attributeDef == null )
                     {
                         String attribName = qualAttribInstance.getStringFromAttribute( "AttributeName" );
                         if ( qualAttrib.entityDef == null )
                             throw new ZeidonException( "QualAttrib has attribute defined but no valid entity" );
 
-                        qualAttrib.AttributeDef = qualAttrib.entityDef.getAttribute( attribName );
+                        qualAttrib.attributeDef = qualAttrib.entityDef.getAttribute( attribName );
                     }
 
                     // In some cases, we might be qualifying an entity using an attribute
@@ -495,7 +506,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
                     // qualification to reference the foreign key.
                     DataRecord dataRecord = qualAttrib.entityDef.getDataRecord();
                     RelRecord relRecord = dataRecord.getRelRecord();
-                    while ( qualAttrib.AttributeDef.isKey() &&
+                    while ( qualAttrib.attributeDef.isKey() &&
                             qualAttrib.entityDef != qualEntity.entityDef &&
                             relRecord != null &&
                             relRecord.getRelationshipType() == RelRecord.CHILD_IS_SOURCE )
@@ -505,8 +516,8 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
                         {
                             // Change the column we are qualifying on.
                             DataField dataField = relField.getRelDataField();
-                            qualAttrib.AttributeDef = dataField.getAttributeDef();
-                            qualAttrib.entityDef = qualAttrib.AttributeDef.getEntityDef();
+                            qualAttrib.attributeDef = dataField.getAttributeDef();
+                            qualAttrib.entityDef = qualAttrib.attributeDef.getEntityDef();
 
                             dataRecord = qualAttrib.entityDef.getDataRecord();
                             relRecord = dataRecord.getRelRecord();
@@ -519,10 +530,15 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
                 //
                 if ( ! qualAttribInstance.isAttributeNull( "Value"  ) )
                 {
-                    if ( qualAttrib.AttributeDef == null )
+                    if ( qualAttrib.attributeDef == null )
                         throw new ZeidonException("QualAttrib with value requires Entity.Attrib");
 
-                    qualAttrib.value = qualAttribInstance.getStringFromAttribute( "Value" );
+                    // Get the string value from the qualification object, convert it to the
+                    // domain's internal value, and then to an a string representation of the
+                    // internal value.
+                    String value = qualAttribInstance.getAttribute( "Value" ).getString();
+                    Domain domain = qualAttrib.attributeDef.getDomain();
+                    qualAttrib.value = domain.convertExternalValue( task, null, qualAttrib.attributeDef, null, value );
                 }
 
                 //
@@ -575,7 +591,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
             assert parenCount == 0;
 
         } // for each EntitySpec...
-    } // method verifyQualificationObject
+    } // method loadQualificationObject
 
     @Override
     public int beginActivate( View view, View qual, EnumSet<ActivateFlags> control )
@@ -583,7 +599,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         this.qual = qual;
         this.activateFlags = control;
         activateOptions = (ActivateOptions) options;
-        verifyQualificationObject( view );
+        loadQualificationObject( view.getLodDef() );
 
         loadedViewEntities = new HashSet<>();
 
@@ -951,7 +967,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         {
             // Add the table to the SELECT statement only if the QualAttrib has
             // a lpEntityDef and a lpAttributeDef.
-            if ( qualAttrib.entityDef == null || qualAttrib.AttributeDef == null )
+            if ( qualAttrib.entityDef == null || qualAttrib.attributeDef == null )
                 continue;
 
             addForeignKeys( stmt, view, qualAttrib.entityDef, entityDef );
@@ -987,7 +1003,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
             // TODO : add code for subselect commands (like "EXISTS")
 
             DataRecord dataRecord = qualAttrib.entityDef.getDataRecord();
-            DataField  dataField = dataRecord.getDataField( qualAttrib.AttributeDef );
+            DataField  dataField = dataRecord.getDataField( qualAttrib.attributeDef );
 
             String col = dataField.getName();
             stmt.appendWhere( stmt.getTableName( dataRecord ), ".", col, " " );
@@ -999,7 +1015,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
             }
 
             boolean isNull = false;
-            if ( StringUtils.isBlank( qualAttrib.value ) )
+            if ( qualAttrib.value == null || StringUtils.isBlank( qualAttrib.value.toString() ) )
                 isNull = true;
 
             if ( isNull )
@@ -1013,9 +1029,8 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
             else
             {
                 Domain domain = dataField.getAttributeDef().getDomain();
-                Object value = domain.convertExternalValue( getTask(), qualAttrib.AttributeDef, null, qualAttrib.value );
                 StringBuilder buffer = new StringBuilder();
-                getSqlValue( stmt, domain, qualAttrib.AttributeDef, buffer, value );
+                getSqlValue( stmt, domain, qualAttrib.attributeDef, buffer, qualAttrib.value );
                 stmt.appendWhere( qualAttrib.oper, " ", buffer.toString() );
             }
         }
@@ -1560,7 +1575,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
                 stmt.appendWhere( ", " );
 
             foundNonNullValues = true;
-            getAttributeValue( stmt, stmt.where, srcDataField, ei );
+            getAttributeValue( stmt, stmt.where, srcDataField, ei, true );
         }
 
         stmt.appendWhere( " ) " );
@@ -1720,19 +1735,34 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         SqlStatement stmt = initializeCommand( SqlCommand.UPDATE, view );
         task.dblog().debug( "Updating entity %s, table name = %s", entityDef.getName(), dataRecord.getRecordName() );
 
+        boolean updateCorrespondenceTable = false;
+
         stmt.appendCmd( "UPDATE ", dataRecord.getRecordName(), "\nSET    " );  // Extra spaces after SET to match indentation.
         int updateCount = 0;
         for ( DataField dataField : dataRecord.dataFields() )
         {
-            AttributeDef AttributeDef = dataField.getAttributeDef();
-            if ( ! AttributeDef.isPersistent() )
+            AttributeDef attributeDef = dataField.getAttributeDef();
+            if ( ! attributeDef.isPersistent() )
                 continue;
 
-            if ( ! entityInstance.isAttributeUpdated( AttributeDef ) )
+            if ( ! entityInstance.isAttributeUpdated( attributeDef ) )
                 continue;
 
-            if ( AttributeDef.isKey() )
-               throw new ZeidonException( "Trying to update key %s", AttributeDef.toString() );
+            if ( attributeDef.isKey() )
+               throw new ZeidonException( "Trying to update key %s", attributeDef.toString() );
+
+            // If this is an autosequencing attribute then we need to check to see if the
+            // relationship is m-to-m.  If it is then we need to update the correspondence
+            // table instead of the main table.
+            if ( attributeDef.isAutoSeq() && entityDef.getParent() != null )
+            {
+                RelRecord relRecord = dataRecord.getRelRecord();
+                if ( relRecord.getRelationshipType().isManyToMany() )
+                {
+                    updateCorrespondenceTable = true;
+                    continue;
+                }
+            }
 
             if ( updateCount > 0 )
                 stmt.appendCmd( ",\n" );
@@ -1744,14 +1774,19 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         }
 
         // If there were no attributes found to need updating then there's nothing to do.
-        if ( updateCount == 0 )
-            return 0;
+        if ( updateCount > 0 )
+        {
+            stmt.buildWhere( stmt, entityInstance );
+            executeStatement( view, entityDef, entityInstance, stmt );
+        }
 
-        stmt.buildWhere( stmt, entityInstance );
-
-        executeStatement( view, entityDef, entityInstance, stmt );
-
-        // TODO: Update correspondence table if entity has autoseq.
+        // Update the correspondence table only if the entity wasn't created/excluded.
+        // If it was c/i then the correspondence table was just created and doesn't
+        // need to be updated.
+        if ( updateCorrespondenceTable && ! entityInstance.isCreated() && ! entityInstance.isIncluded() )
+        {
+            throw new ZeidonException( "Updating correspondance table not supported yet" );
+        }
 
         return 0;
     }
@@ -2236,11 +2271,11 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
 
     private static class QualAttrib
     {
-        public String value;
+        public Object value;
         String        oper;
         EntityDef    entityDef;
         String        keyList;
-        AttributeDef AttributeDef;
+        AttributeDef attributeDef;
 
         private QualAttrib(String oper)
         {
@@ -2257,7 +2292,7 @@ public abstract class AbstractSqlHandler implements DbHandler, GenKeyHandler
         {
             StringBuilder sb = new StringBuilder();
             if ( entityDef != null )
-                sb.append( entityDef.getName() ).append( "." ).append( AttributeDef.getName() ).append( " "  );
+                sb.append( entityDef.getName() ).append( "." ).append( attributeDef.getName() ).append( " "  );
             sb.append( oper ).append( " " );
             if ( value != null )
                 sb.append( value );

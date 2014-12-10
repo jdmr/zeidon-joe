@@ -26,7 +26,6 @@ import java.util.Date;
 
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import com.quinsoft.zeidon.Task;
@@ -38,8 +37,8 @@ import com.quinsoft.zeidon.domains.BooleanDomain;
 import com.quinsoft.zeidon.domains.DateDomain;
 import com.quinsoft.zeidon.domains.DateTimeDomain;
 import com.quinsoft.zeidon.domains.Domain;
-import com.quinsoft.zeidon.objectdefinition.DataField;
 import com.quinsoft.zeidon.objectdefinition.AttributeDef;
+import com.quinsoft.zeidon.objectdefinition.DataField;
 
 /**
  * The standard JDBC domain translator.
@@ -56,7 +55,6 @@ public class StandardJdbcTranslator implements JdbcDomainTranslator
      **/
     protected final DateTimeFormatter dateFormatter;
     protected final DateTimeFormatter dateTimeFormatter;
-    protected final DateTimeFormatter dateTimeFormatterShort;
 
     private final Task        task;
 
@@ -71,23 +69,8 @@ public class StandardJdbcTranslator implements JdbcDomainTranslator
         super();
         this.task = task;
         bindAllValues = handler.isBindAllValues();
-        String dateFormat = handler.getDateAsStringFormat();
-        dateFormatter     = DateTimeFormat.forPattern( dateFormat );
-        if ( dateFormat.indexOf("HH:mm:ss.SSS") >= 0 )
-        {
-            dateTimeFormatter = DateTimeFormat.forPattern( dateFormat );
-            dateTimeFormatterShort = DateTimeFormat.forPattern( dateFormat.substring(0,  dateFormat.length() - 4) );
-        }
-        else if (dateFormat.indexOf("HH:mm:ss.SSS") < 0 && dateFormat.indexOf("HH:mm:ss") >= 0)
-        {
-        	dateTimeFormatter = DateTimeFormat.forPattern( dateFormat + ".SSS" );
-            dateTimeFormatterShort = DateTimeFormat.forPattern( dateFormat );
-        }
-        else
-        {
-        	dateTimeFormatter = DateTimeFormat.forPattern( dateFormat + " HH:mm:ss.SSS" );
-            dateTimeFormatterShort = DateTimeFormat.forPattern( dateFormat + " HH:mm:ss" );
-        }
+        dateFormatter = handler.getDateFormatter();
+        dateTimeFormatter = handler.getDateTimeFormatter();
     }
 
     protected Task getTask()
@@ -144,7 +127,7 @@ public class StandardJdbcTranslator implements JdbcDomainTranslator
         if ( domain instanceof DateTimeDomain )
         {
             // Convert the value (likely a string) to a date.
-            Object v = domain.convertExternalValue( task, attributeDef, null, value );
+            Object v = domain.convertExternalValue( task, null, attributeDef, null, value );
             String str = dateTimeFormatter.print( (DateTime) v );
             return appendString( stmt, buffer, str );
         }
@@ -152,7 +135,7 @@ public class StandardJdbcTranslator implements JdbcDomainTranslator
         if ( domain instanceof DateDomain )
         {
             // Convert the value (likely a string) to a date.
-            Object v = domain.convertExternalValue( task, attributeDef, null, value );
+            Object v = domain.convertExternalValue( task, null, attributeDef, null, value );
             String str = dateFormatter.print( (DateTime) v );
             return appendString( stmt, buffer, str );
         }
@@ -164,14 +147,13 @@ public class StandardJdbcTranslator implements JdbcDomainTranslator
 
         if ( domain instanceof BooleanDomain )
         {
-            Object b = domain.convertExternalValue( task, attributeDef, null, value );
+            Object b = domain.convertExternalValue( task, null, attributeDef, null, value );
             buffer.append( (Boolean) b ? "true" : "false" );
             return true;
         }
 
-        Object v = domain.convertExternalValue( task, attributeDef, null, value );
-        String str = domain.convertToString( task, attributeDef, v );
-        return appendString( stmt, buffer, str );
+        String string = domain.convertToString( task, attributeDef, value );
+        return appendString( stmt, buffer, string );
     }
 
     /**
@@ -191,17 +173,14 @@ public class StandardJdbcTranslator implements JdbcDomainTranslator
             if ( dbValue instanceof CharSequence )
             {
                 String date = dbValue.toString();
-                DateTimeFormatter formatter = dateTimeFormatter;
-                if ( date.length() <= 19 )
-                    formatter = dateTimeFormatterShort;
                 try
                 {
-                    return formatter.parseDateTime( date );
+                    return dateTimeFormatter.parseDateTime( date );
                 }
                 catch ( IllegalArgumentException e )
                 {
-                    throw ZeidonException.prependMessage( e, "Invalid date format.  Got '%s' but expected format '%s'",
-                                                          date, formatter.toString() );
+                    throw ZeidonException.prependMessage( e, "Invalid datetime format.  Got '%s' but expected format '%s'",
+                                                          date, dateTimeFormatter );
                 }
             }
         }

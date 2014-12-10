@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.primitives.Ints;
 import com.quinsoft.zeidon.Application;
+import com.quinsoft.zeidon.AttributeInstance;
 import com.quinsoft.zeidon.InvalidAttributeValueException;
 import com.quinsoft.zeidon.Task;
 import com.quinsoft.zeidon.objectdefinition.AttributeDef;
@@ -41,10 +42,14 @@ public class IntegerDomain extends AbstractNumericDomain
     }
 
     @Override
-    public Object convertExternalValue(Task task, AttributeDef attributeDef, String contextName, Object externalValue)
+    public Object convertExternalValue(Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, String contextName, Object externalValue)
     {
     	if ( externalValue == null )
     		return null;
+
+        // If external value is an AttributeInstance then get *its* internal value.
+        if ( externalValue instanceof AttributeInstance )
+            externalValue = ((AttributeInstance) externalValue).getValue();
 
         if ( externalValue instanceof Long )
             return Ints.checkedCast( (Long) externalValue );
@@ -61,7 +66,7 @@ public class IntegerDomain extends AbstractNumericDomain
         	Integer num;
         	try
         	{
-        		num = Integer.parseInt( ((CharSequence) externalValue ).toString() );
+        		num = Integer.parseInt( externalValue.toString().trim() );
         	}
         	catch( Exception e )
         	{
@@ -86,17 +91,17 @@ public class IntegerDomain extends AbstractNumericDomain
     }
 
     @Override
-    public Object addToAttribute( Task task, AttributeDef attributeDef, Object currentValue, Object operand )
+    public Object addToAttribute( Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, Object currentValue, Object operand )
     {
-        Integer num = (Integer) convertExternalValue( task, attributeDef, null, operand );
+        Integer num = (Integer) convertExternalValue( task, attributeInstance, attributeDef, null, operand );
         Integer value = (Integer) currentValue;
         return value + num;
     }
 
     @Override
-    public Object multiplyAttribute( Task task, AttributeDef attributeDef, Object currentValue, Object operand )
+    public Object multiplyAttribute( Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, Object currentValue, Object operand )
     {
-        Integer num = (Integer) convertExternalValue( task, attributeDef, null, operand );
+        Integer num = (Integer) convertExternalValue( task, attributeInstance, attributeDef, null, operand );
         Integer value = (Integer) currentValue;
         return value * num;
     }

@@ -9,6 +9,7 @@ import com.quinsoft.zeidon.ZeidonException
 import com.quinsoft.zeidon.objectdefinition.LodDef
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.WrappedArray
+import org.apache.commons.lang3.StringUtils
 
 /**
  * A trait to give Scala objects access to VML-like syntax.  This is similar to
@@ -71,11 +72,18 @@ private[scala] class ObjectOperationCaller( private[scala] val operationName: St
     }
 }
 
+/**
+ * This class is used to keep track of object operations by name.
+ */
 private [scala] class ObjectOperationMap() {
-    val map = new TrieMap[String, ObjectOperationCaller]()
+
+    private val map = new TrieMap[String, ObjectOperationCaller]()
 
     def getObjectOperation( operName: String, jlodDef: LodDef, args: AnyRef* ) = {
-        val className = jlodDef.getApplication().getPackage() + "." + jlodDef.getLibraryName()
+        var className = jlodDef.getSourceFileName()
+        if ( StringUtils.isBlank( className ) )
+            className = jlodDef.getApplication().getPackage() + "." + jlodDef.getLibraryName()
+
         val key = className + "." + operName
         if ( ! map.contains( key ) )
             map += (key -> new ObjectOperationCaller( operName, className, args:_* ) )

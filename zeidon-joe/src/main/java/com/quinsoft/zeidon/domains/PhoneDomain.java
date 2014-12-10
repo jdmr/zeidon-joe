@@ -24,12 +24,14 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 import com.quinsoft.zeidon.Application;
+import com.quinsoft.zeidon.AttributeInstance;
 import com.quinsoft.zeidon.InvalidAttributeValueException;
 import com.quinsoft.zeidon.Task;
 import com.quinsoft.zeidon.ZeidonException;
 import com.quinsoft.zeidon.objectdefinition.AttributeDef;
 import com.quinsoft.zeidon.utils.JoeUtils;
 import com.quinsoft.zeidon.utils.PortableFileReader;
+
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -80,10 +82,14 @@ public class PhoneDomain extends StringDomain
     }
     
     @Override
-    public Object convertExternalValue(Task task, AttributeDef attributeDef, String contextName, Object externalValue)
+    public Object convertExternalValue(Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, String contextName, Object externalValue)
     {
         if ( externalValue == null )
            return null;
+
+        // If external value is an AttributeInstance then get *its* internal value.
+        if ( externalValue instanceof AttributeInstance )
+            externalValue = ((AttributeInstance) externalValue).getValue();
 
         String phone = externalValue.toString( );
         if ( phone.isEmpty() )
@@ -94,7 +100,7 @@ public class PhoneDomain extends StringDomain
 
     /*
     @Override
-    public Object convertInternalValue(Task task, AttributeDef attributeDef, Object internalValue) throws InvalidAttributeValueException
+    public Object convertInternalValue(Task task, attributeDef attributeDef, Object internalValue) throws InvalidAttributeValueException
     {
         validateInternalValue( task, attributeDef, internalValue );
         String phone = internalValue.toString( );
@@ -183,7 +189,7 @@ public class PhoneDomain extends StringDomain
         	
         	// If the user has not entered a Java Format string, just return the internal value.
         	if ( editString == null )
-        	    throw new ZeidonException( "JaveEditString is not set for context %s", this.toString() );
+        	    throw new ZeidonException( "JavaEditString is not set for context %s", this.toString() );
         	
         	int formatLength = editString.length();
         	String internalString = internalValue.toString();

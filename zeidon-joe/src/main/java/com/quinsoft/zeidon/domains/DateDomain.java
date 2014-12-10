@@ -26,11 +26,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
-import org.joda.time.format.DateTimePrinter;
 
 import com.quinsoft.zeidon.Application;
+import com.quinsoft.zeidon.AttributeInstance;
 import com.quinsoft.zeidon.InvalidAttributeValueException;
 import com.quinsoft.zeidon.ObjectEngine;
 import com.quinsoft.zeidon.Task;
@@ -53,13 +51,17 @@ public class DateDomain extends AbstractDomain
     }
 
     @Override
-    public Object convertExternalValue(Task task, AttributeDef attributeDef, String contextName, Object externalValue)
+    public Object convertExternalValue(Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, String contextName, Object externalValue)
     {
     	// KJS - Added 01/27/11 because of line 2836 in lTrnscpt_Object.java
     	// OrderEntityForView( lTrnscpt, "StudentMajorDegreeTrack", "wPrimarySortOrder A GraduationDate A" );
     	// value = null so we are getting to the exception.  Will try returning null, see what happens.
     	if ( externalValue == null )
     		return null;
+
+        // If external value is an AttributeInstance then get *its* internal value.
+        if ( externalValue instanceof AttributeInstance )
+            externalValue = ((AttributeInstance) externalValue).getValue();
 
         if ( externalValue instanceof DateTime )
             return externalValue;
@@ -133,9 +135,9 @@ public class DateDomain extends AbstractDomain
      * Adds milliseconds to the datetime value.
      */
     @Override
-    public Object addToAttribute( Task task, AttributeDef attributeDef, Object currentValue, Object addValue )
+    public Object addToAttribute( Task task, AttributeInstance attributeInstance, AttributeDef attributeDef, Object currentValue, Object addValue )
     {
-        DateTime date1 = (DateTime) convertExternalValue( task, attributeDef, null, currentValue );
+        DateTime date1 = (DateTime) convertExternalValue( task, attributeInstance, attributeDef, null, currentValue );
 
         if ( addValue == null )
             return date1;
@@ -180,7 +182,7 @@ public class DateDomain extends AbstractDomain
         		return internalValue.toString();
 
         	if ( formatter == null )
-        	    throw new ZeidonException( "JaveEditString is not set for context %s", this.toString() );
+        	    throw new ZeidonException( "JavaEditString is not set for context %s", this.toString() );
 
             return formatter.print( (DateTime) internalValue );
         }
@@ -194,6 +196,10 @@ public class DateDomain extends AbstractDomain
         	if ( value == null )
         		return null;
 
+            // If external value is an AttributeInstance then get *its* internal value.
+            if ( value instanceof AttributeInstance )
+                value = ((AttributeInstance) value).getValue();
+
             String s = (String) value;
 
             // VML operations use "" as synonymous with null.
@@ -206,7 +212,7 @@ public class DateDomain extends AbstractDomain
                 return JoeUtils.parseStandardDateString( s );
 
         	if ( formatter == null )
-        	    throw new ZeidonException( "JaveEditString is not set for context %s", this.toString() );
+        	    throw new ZeidonException( "JavaEditString is not set for context %s", this.toString() );
 
         	try
         	{
@@ -224,28 +230,7 @@ public class DateDomain extends AbstractDomain
         private void setEditString( String editString )
         {
             this.editString = editString;
-            String[] strings = editString.split( "\\|" );
-            DateTimeParser list[] = new DateTimeParser[ strings.length ];
-            DateTimePrinter printer = null;
-            for ( int i = 0; i < strings.length; i++ )
-            {
-                try
-                {
-                    DateTimeFormatter f = DateTimeFormat.forPattern( strings[i] );
-                    if ( printer == null )
-                        printer = f.getPrinter();
-
-                    list[ i ] = f.getParser();
-                }
-                catch ( Exception e )
-                {
-                    throw ZeidonException.wrapException( e ).appendMessage( "Format string = %s", strings[i] );
-                }
-            }
-
-            DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
-            builder.append( printer, list );
-            formatter = builder.toFormatter();
+            formatter = JoeUtils.createDateFormatterFromEditString( editString );
         }
 
         @Override

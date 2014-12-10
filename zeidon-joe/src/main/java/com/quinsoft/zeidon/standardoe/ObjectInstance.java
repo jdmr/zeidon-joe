@@ -383,4 +383,32 @@ class ObjectInstance implements Lockable
     {
         this.ignoreLazyLoadEntities = ignoreLazyLoadEntities;
     }
+
+    /**
+     * Creates a new View that references this OI.  If ei is not null
+     * then set the cursor as well.
+     *
+     * @param ei
+     * @return
+     */
+    ViewImpl createView( EntityInstanceImpl ei )
+    {
+        ViewImpl view = new ViewImpl( this );
+        if ( ei != null )
+            view.cursor( ei.getEntityDef() ).setCursor( ei );
+
+        return view;
+    }
+    
+    int getEntityCount( boolean includeHidden )
+    {
+        int count = 0;
+        for ( EntityInstanceImpl ei = rootEntityInstance; ei != null; ei = ei.getNextHier() )
+        {
+            if ( includeHidden || ! ei.isHidden() )
+                count++;
+        }
+        
+        return count;
+    }
 }

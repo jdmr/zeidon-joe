@@ -9,6 +9,8 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
 
+import org.joda.time.format.DateTimeFormatter;
+
 import com.quinsoft.zeidon.CursorResult;
 import com.quinsoft.zeidon.DeserializeOi;
 import com.quinsoft.zeidon.EntityCursor;
@@ -19,6 +21,7 @@ import com.quinsoft.zeidon.ZeidonException;
 import com.quinsoft.zeidon.objectdefinition.EntityDef;
 import com.quinsoft.zeidon.objectdefinition.LodDef;
 import com.quinsoft.zeidon.standardoe.JavaObjectEngine;
+import com.quinsoft.zeidon.utils.JoeUtils;
 import com.quinsoft.zeidon.utils.QualificationBuilder;
 
 /**
@@ -161,6 +164,10 @@ class SimpleTest
         ObjectEngine oe = JavaObjectEngine.getInstance();
         Task zencas = oe.createTask( "ZENCAs" );
 
+        DateTimeFormatter parser = JoeUtils.createDateFormatterFromEditString( "EEE MMM dd HH:mm:ss 'xxx' yyyy" );
+        parser.parseDateTime( "Sun Nov 09 23:29:27 EST 2014" );
+        System.out.println( "here" );
+
         View stud = new QualificationBuilder( zencas )
                             .setLodDef( "lStudDpt" )
                             .setOiSourceUrl( fileDbUrl )
@@ -171,8 +178,8 @@ class SimpleTest
 
         stud.cursor( "Student" ).setPosition( 6 );
         String id = stud.cursor( "Student" ).getAttribute( "ID" ).getString();
-        stud.serializeOi().toFile( "/tmp/stud.json" ).asJson().withIncremental().compressed().write();
-        stud.serializeOi().toFile( "/tmp/stud2.json" ).asJson().write();
+        stud.serializeOi().asJson().withIncremental().compressed().toFile( "/tmp/stud.json" );
+        stud.serializeOi().asJson().toFile( "/tmp/stud2.json" );
 
         View stud2 = new DeserializeOi( zencas )
                             .fromResource( "/tmp/stud2.json" )

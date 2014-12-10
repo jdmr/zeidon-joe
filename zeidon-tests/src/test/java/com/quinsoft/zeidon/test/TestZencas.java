@@ -10,6 +10,7 @@ import java.io.Writer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import junit.framework.Assert;
 
@@ -22,6 +23,7 @@ import org.junit.Test;
 
 import com.quinsoft.zeidon.ActivateFlags;
 import com.quinsoft.zeidon.ActivateOptions;
+import com.quinsoft.zeidon.AttributeInstance;
 import com.quinsoft.zeidon.CursorPosition;
 import com.quinsoft.zeidon.CursorResult;
 import com.quinsoft.zeidon.DeserializeOi;
@@ -131,6 +133,37 @@ public class TestZencas
         System.out.println("===== Finished testAttributeUpdated ========");
 	}
 
+	/**
+	 * Test password encryption.
+	 */
+    @Test
+    public void testPassword()
+    {
+        String password = UUID.randomUUID().toString();
+
+        // Activate a user and set the password.
+        View mUser = new QualificationBuilder( zencas ).setLodDef( "mUser" ).addAttribQual( "ID", 490 ).activate();
+        AttributeInstance attr1 = mUser.cursor( "User" ).getAttribute( "Password" );
+        mUser.cursor( "User" ).getAttribute( "Password" ).setValue( password );
+        System.out.println( "Hash = " + attr1.getString() );
+        Assert.assertEquals( "Password doesn't match", 0, attr1.compare( password ) );
+        Assert.assertEquals( "Password matches different string", 1, attr1.compare(  "abc" ) );
+
+        // Commit the new password
+        System.out.println( "Hash = " + attr1.getString() );
+        mUser.commit();
+
+        // Make sure the commit didn't change anything.
+        Assert.assertEquals( "Password doesn't match", 0, attr1.compare( password ) );
+        Assert.assertEquals( "Password matches different string", 1, attr1.compare(  "abc" ) );
+
+        // Reload the user and verify the password.
+        View mUser2 = new QualificationBuilder( zencas ).setLodDef( "mUser" ).addAttribQual( "ID", 490 ).activate();
+        AttributeInstance attr2 = mUser2.cursor( "User" ).getAttribute( "Password" );
+        Assert.assertEquals( "After commit: Password doesn't match", 0, attr2.compare( password ) );
+        Assert.assertEquals( "After commit: Password matches different string", 1, attr2.compare( "abc" )  );
+    }
+
 	@Test
 	// Some of the dynamic domains are dependent on the admin division.
 	// That means there are more than one domain with the same name.
@@ -220,7 +253,7 @@ public class TestZencas
 
         SerializeOi options = new SerializeOi();
         options.withIncremental();
-        new SerializeOi().toFile( getTempDir() + "/stud.json" ).withIncremental().write( stud, person );
+        new SerializeOi().withIncremental().addView( stud, person ).toFile( getTempDir() + "/stud.json" );
 
         List<View> viewList = new DeserializeOi( zencas )
                                         .asJson()
@@ -235,7 +268,7 @@ public class TestZencas
                             .addAttribQual( "ID", 5 )
                             .activate();
         stud.cursor( "College" ).deleteEntity();
-        new SerializeOi().toFile( getTempDir() + "/mcollege.json" ).withIncremental().write( stud );
+        stud.serializeOi().withIncremental().toFile( getTempDir() + "/mcollege.json" );
 
         viewList = new DeserializeOi( zencas )
                                     .asJson()
@@ -1982,6 +2015,7 @@ public class TestZencas
 			//:                        mStudent.ContactActivity.ID = 0
 			o_fnLocalBuildQual_50( ViewToWindow, vTempViewVar_0, 15541 );
 			RESULT = ActivateObjectInstance( mStudent, "mStudent", ViewToWindow, vTempViewVar_0, zSINGLE );
+			mStudent.log().info( "Entity count = %d", mStudent.getEntityCount( true ) );
 			DropView( vTempViewVar_0 );
 			DropView( mStudent );
 			DropView( lTermLST );

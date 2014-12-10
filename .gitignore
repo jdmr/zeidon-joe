@@ -6,3 +6,4 @@ tmp/
 .tmpclasspath
 nb-configuration.xml
 nbactions.xml
+.cache

@@ -18,8 +18,11 @@
  */
 package com.quinsoft.zeidon.standardoe;
 
+import com.quinsoft.zeidon.AttributeInstance;
+import com.quinsoft.zeidon.EntityConstraintType;
 import com.quinsoft.zeidon.ObjectConstraintType;
 import com.quinsoft.zeidon.View;
+import com.quinsoft.zeidon.objectdefinition.EntityDef;
 
 /**
  * This is used to call Scala operations (like constraint operations) from JOE.
@@ -30,5 +33,16 @@ import com.quinsoft.zeidon.View;
  */
 public interface ScalaHelper
 {
-    Integer executeObjectConstraint( View view, ObjectConstraintType constraintType, ClassLoader loader );
+    void setClassLoader( ClassLoader classLoader );
+    Integer executeObjectConstraint( View view, ObjectConstraintType constraintType );
+    Integer executeEntityConstraint( View view, EntityDef entityDef, EntityConstraintType type );
+
+    /**
+     * This is called when the value for a derived attribute is requested.  The implementation
+     * of this should set the value in the attributeInstance using setDerivedValue().
+     *
+     * @param attributeInstance
+     * @return ignored
+     */
+    Integer calculateDerivedAttribute( AttributeInstance attributeInstance );
 }

@@ -35,6 +35,7 @@ import com.quinsoft.zeidon.Blob;
 import com.quinsoft.zeidon.CreateEntityFlags;
 import com.quinsoft.zeidon.CursorPosition;
 import com.quinsoft.zeidon.CursorResult;
+import com.quinsoft.zeidon.EntityConstraintType;
 import com.quinsoft.zeidon.EntityCursor;
 import com.quinsoft.zeidon.EntityInstance;
 import com.quinsoft.zeidon.EntityIterator;
@@ -403,6 +404,15 @@ class EntityCursorImpl implements EntityCursor
 
         resetChildCursors( newInstance );
 
+        // Check to see if we need to execute the create constraint.  We'll assume we don't
+        // execute it if the initialize flag is set because we don't want to execute the
+        // constraint when loading from DB/file.
+        if ( getEntityDef().hasCreateConstraint() &&
+             ! flags.contains( CreateEntityFlags.fDONT_INITIALIZE_ATTRIBUTES ) )
+        {
+            entityDef.executeEntityConstraint( getView(), EntityConstraintType.CREATE );
+        }
+
         assert validateChains() : "Something is wrong with the chain pointers";
         return newInstance;
     }
@@ -672,7 +682,7 @@ class EntityCursorImpl implements EntityCursor
     @Override
     public CursorResult excludeEntity(CursorPosition position)
     {
-        getExistingInstance().excludeEntity();
+        getExistingInstance().excludeEntity( getView() );
         assert validateChains() : "Something is wrong with the chain pointers";
         return repositionCursor( position );
     }
@@ -738,6 +748,11 @@ class EntityCursorImpl implements EntityCursor
     @Override
     public void includeSubobject(EntityInstance sourceEi, CursorPosition position) throws NullCursorException
     {
+        // Include constraints take some work.  Since nobody appears to use them let's not
+        // worry about implementing them for now.
+        if ( entityDef.hasIncludeConstraint() )
+            throw new UnsupportedOperationException( "Include constraints not supported yet." );
+
         validateMaxCardinality();
         validateOiUpdate();
         EntityInstanceImpl source = (EntityInstanceImpl) sourceEi.getEntityInstance();
@@ -844,18 +859,12 @@ class EntityCursorImpl implements EntityCursor
      */
     private EntityInstanceImpl getScopingEntityInstance( EntityDef scopingEntity )
     {
-        if ( scopingEntity == null )
-            throw new ZeidonException( "ScopingEntity may not be null" );
-
         // If the entity for this cursor has no parent then scoping isn't required.
         if ( getEntityDef().getParent() == null )
             return null;
 
-// DGC 2013-02-21 Following is commented out in case the check-for-null at the beginning
-// of this method is incorrect.  You can remove the following code once it has been
-// verified that it is not needed.
-//        if ( scopingEntity == null )
-//            scopingEntity = getEntityDef().getParent();
+        if ( scopingEntity == null )
+            scopingEntity = getEntityDef().getParent();
 
         // If the scoping entity isn't the parent then we need to reset ancestor
         // cursors for everything under the scoping entity child.
@@ -901,6 +910,9 @@ class EntityCursorImpl implements EntityCursor
     @Override
     public CursorResult setFirst(EntityDef scopingEntity)
     {
+        if ( scopingEntity == null )
+            return setFirst();
+
         currentIterator = new IteratorBuilder(getObjectInstance())
                                     .withScoping( getScopingEntityInstance( scopingEntity ) )
                                     .forEntityDef( getEntityDef() )
@@ -1218,7 +1230,7 @@ class EntityCursorImpl implements EntityCursor
     @Override
     public EntityInstance cancelSubobject()
     {
-        EntityInstanceImpl ei = getExistingInstance().cancelSubobject();
+        EntityInstanceImpl ei = getExistingInstance().cancelSubobject( getView() );
         setEntityInstance( ei );
 
         // The child cursors may still point to the new version.  Reset them all to point

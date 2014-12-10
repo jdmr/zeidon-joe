@@ -33,10 +33,12 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.joda.time.DateTime;
 
 import com.google.common.collect.MapMaker;
+import com.quinsoft.zeidon.ActivateFlags;
 import com.quinsoft.zeidon.AttributeInstance;
 import com.quinsoft.zeidon.Blob;
 import com.quinsoft.zeidon.CursorPosition;
 import com.quinsoft.zeidon.CursorResult;
+import com.quinsoft.zeidon.EntityConstraintType;
 import com.quinsoft.zeidon.EntityInstance;
 import com.quinsoft.zeidon.EntityIterator;
 import com.quinsoft.zeidon.EventNotification;
@@ -602,13 +604,8 @@ class EntityInstanceImpl implements EntityInstance
         if ( ! attributeDef.isDerived() )
             return;
 
-        if ( view == null )
-        {
-            view = new ViewImpl( getObjectInstance() );
-            view.cursor( attributeDef.getEntityDef() ).setCursor( this );
-        }
-
-        attributeDef.executeDerivedAttributeForGet( view );
+        AttributeInstanceImpl instance = getAttribute( attributeDef, view );
+        attributeDef.executeDerivedAttributeForGet( instance );
     }
 
     @Override
@@ -740,6 +737,14 @@ class EntityInstanceImpl implements EntityInstance
         // the DB that can be lazy loaded.
         if ( isCreated() )
             return;
+
+        // Was this OI activated with the flag that indicates that entities marked
+        // as lazy loaded should be loaded anyway?
+        if ( getObjectInstance().getActivateOptions() != null &&
+             getObjectInstance().getActivateOptions().getActivateFlags().contains( ActivateFlags.fINCLUDE_LAZYLOAD ) )
+        {
+            return; // Entities flagged as lazy load have already been loaded.
+        }
 
         // Have we already loaded this child?
         if ( hasChildBeenLazyLoaded( childEntityDef ) )
@@ -1036,7 +1041,15 @@ class EntityInstanceImpl implements EntityInstance
     @Override
     public CursorResult deleteEntity()
     {
-        return deleteEntity(true, null);
+        View view = null;
+
+        if ( entityDef.hasDeleteConstraint() )
+        {
+            view = getObjectInstance().createView( this );
+            entityDef.executeEntityConstraint( view, EntityConstraintType.DELETE );
+        }
+
+        return deleteEntity( true, view );
     }
 
     /**
@@ -1048,6 +1061,9 @@ class EntityInstanceImpl implements EntityInstance
      */
     CursorResult deleteEntity( View view )
     {
+        if ( entityDef.hasDeleteConstraint() )
+            entityDef.executeEntityConstraint( view, EntityConstraintType.DELETE );
+
         return deleteEntity( true, view );
     }
 
@@ -1198,6 +1214,19 @@ class EntityInstanceImpl implements EntityInstance
     @Override
     public CursorResult excludeEntity()
     {
+        return excludeEntity( null );
+    }
+
+    CursorResult excludeEntity( View view )
+    {
+        if ( entityDef.hasExcludeConstraint() )
+        {
+            if ( view == null )
+                view = getObjectInstance().createView( this );
+
+            entityDef.executeEntityConstraint( view, EntityConstraintType.EXCLUDE );
+        }
+
         // If there is no parent then excluding the entity is the same as dropping it.
     	if ( getParent() == null )
     	{
@@ -1911,6 +1940,18 @@ class EntityInstanceImpl implements EntityInstance
     @Override
     public EntityInstanceImpl cancelSubobject()
     {
+        return cancelSubobject( null );
+    }
+
+    /**
+     * Cancels the temporal subobject.  The view that is passed in is used to call
+     * the entity constraint (if it exists).  If view is null then a temporary view
+     * will be created.
+     *
+     * @return
+     */
+    EntityInstanceImpl cancelSubobject( ViewImpl view )
+    {
         // If the entity is a temporal entity created via createTemporal we'll cancel it.
         if ( versionStatus == VersionStatus.UNACCEPTED_ENTITY )
         {
@@ -1920,6 +1961,14 @@ class EntityInstanceImpl implements EntityInstance
 
         if ( versionStatus != VersionStatus.UNACCEPTED_ROOT )
             throw new TemporalEntityException(this, "Entity is not the root of a temporal subobject" );
+
+        if ( entityDef.hasCancelConstraint() )
+        {
+            if ( view == null )
+                view = getObjectInstance().createView( this );
+
+            entityDef.executeEntityConstraint( view, EntityConstraintType.CANCEL );
+        }
 
         // All we need to do is go through all of the entities in the subobject and set their
         // pointers to null.  Everything else will be taken care of by normal processing.
@@ -2718,22 +2767,13 @@ class EntityInstanceImpl implements EntityInstance
 
         contextName = checkContextName( attributeDef, contextName );
 
-        // Validate that this attribute can be updated.  If we're in the process of initializing
-        // the attribute we'll allow it.
-        if ( !beingInitialized )
-            validateUpdateAttribute( attributeDef );
-
         try
         {
-            AttributeValue attrib = getInternalAttribute( attributeDef );
-            Object oldValue = attrib.getInternalValue();
-            if ( attrib.set( getTask(), attributeDef, value, contextName ) )
-            {
-                if ( ! attributeDef.isDerived() )
-                    setUpdated( true, true, attributeDef.isPersistent() );
-
-                updateHashKeyAttributeToMap( attributeDef, oldValue );
-            }
+            AttributeInstanceImpl attrib = getAttribute( attributeDef );
+            if ( beingInitialized )
+                attrib.setInternalValue( value, false ); // This bypasses some validation.
+            else
+                attrib.setValue( value, contextName );
         }
         catch( Throwable t )
         {
@@ -2788,18 +2828,8 @@ class EntityInstanceImpl implements EntityInstance
     {
         try
         {
-            AttributeValue attrib = getInternalAttribute( attributeDef );
-            Object oldValue = attrib.getInternalValue();
-
-            // The value is internal value but it may be a different data type.  Ask the domain to convert it and validate it.
-            Object newValue = attrib.convertInternalValue( getTask(), attributeDef, value );
-            if ( attrib.setInternalValue( getTask(), attributeDef, newValue, setIncremental ) )
-            {
-                if ( setIncremental && ! attributeDef.isDerived() )
-                    setUpdated( true, true, attributeDef.isPersistent() );
-
-                updateHashKeyAttributeToMap( attributeDef, oldValue );
-            }
+            AttributeInstanceImpl attrib = getAttribute( attributeDef );
+            attrib.setInternalValue( value, setIncremental );
         }
         catch( Throwable t )
         {
@@ -3108,7 +3138,8 @@ class EntityInstanceImpl implements EntityInstance
     int compareAttribute( View view, AttributeDef attributeDef, Object value)
     {
         executeDerivedOper( view, attributeDef );
-        return getInternalAttribute( attributeDef ).compare( getTask(), attributeDef, value );
+        AttributeInstanceImpl attrib = getAttribute( attributeDef );
+        return getInternalAttribute( attributeDef ).compare( getTask(), attrib, attributeDef, value );
     }
 
     @Override
@@ -3146,8 +3177,9 @@ class EntityInstanceImpl implements EntityInstance
     Object addToAttribute( View view, AttributeDef attributeDef, Object value )
     {
         executeDerivedOper( view, attributeDef );
-        AttributeValue attrib = getInternalAttribute( attributeDef );
-        return attrib.addToAttribute( getTask(), attributeDef, value );
+        AttributeInstanceImpl attrib = getAttribute( attributeDef );
+        attrib.add( value );
+        return attrib.getValue();
     }
 
     @Override
@@ -3164,10 +3196,10 @@ class EntityInstanceImpl implements EntityInstance
 
     Object multiplyAttribute( View view, AttributeDef attributeDef, Object value )
     {
-        // TODO: I don't think this is updating the entity flags.
         executeDerivedOper( view, attributeDef );
-        AttributeValue attrib = getInternalAttribute( attributeDef );
-        return attrib.multiplyAttribute( getTask(), attributeDef, value );
+        AttributeInstanceImpl attrib = getAttribute( attributeDef );
+        attrib.multiply( value );
+        return attrib.getValue();
     }
 
     @Override
