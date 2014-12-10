@@ -5,3 +5,5 @@ tmp/
 *.bat
 .tmpclasspath
 .cache
+nb-configuration.xml
+nbactions.xml
