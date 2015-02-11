@@ -8,3 +8,5 @@ tmp/
 .settings
 .project
 .classpath
+nb-configuration.xml
+nbactions.xml
