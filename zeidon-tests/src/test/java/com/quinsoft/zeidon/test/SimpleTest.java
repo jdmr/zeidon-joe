@@ -10,7 +10,6 @@ import java.io.Writer;
 import java.util.List;
 
 import com.quinsoft.zeidon.CursorResult;
-import com.quinsoft.zeidon.DeserializeOi;
 import com.quinsoft.zeidon.EntityCursor;
 import com.quinsoft.zeidon.ObjectEngine;
 import com.quinsoft.zeidon.Task;
@@ -173,18 +172,23 @@ class SimpleTest
         stud.cursor( "Student" ).getAttribute( "eMailAddress" ).setValue( "dgc@xyz.com" );
         stud.cursor( "Student" ).setPosition( 6 );
         String id = stud.cursor( "Student" ).getAttribute( "ID" ).getString();
-        stud.cursor(  "StudentMajorDegreeTrack" ).setPrevWithinOi();
-//        stud.serializeOi().asJson().withIncremental().toFile( "/tmp/stud.json" );
-        stud.serializeOi().asJson().toFile( "/tmp/stud2.json" );
+//        stud.cursor(  "StudentMajorDegreeTrack" ).setPrevWithinOi();
+        stud.serializeOi().asJson().withIncremental().toFile( "/tmp/stud.json" );
+        String jsonFile = stud.serializeOi().withIncremental().toFile( "/tmp/stud2.json" );
 
-        View stud2 = new DeserializeOi( zencas )
-                            .fromResource( "/tmp/stud2.json" )
+        View stud2 = zencas.deserializeOi()
+                            .fromResource( jsonFile )
                             .setLodDef( "lStudDpt" )
-                            .asJson()
                             .activateFirst();
 //        stud2.logObjectInstance();
 
-        List<View> stud3 = new DeserializeOi( zencas )
+        String xmlFile = stud.serializeOi().withIncremental().compressed().toTempDir( "stud2.xml" );
+        stud2 = zencas.deserializeOi().fromResource( xmlFile ).activateFirst();
+
+        if ( ! stud.cursor( "Student" ).getAttribute( "ID" ).getString().equals( stud2.cursor( "Student" ).getAttribute( "ID" ).getString() ) )
+            throw new ZeidonException( "Mismatching IDs" );
+
+        List<View> stud3 = zencas.deserializeOi()
                             .fromResource( "/tmp/stud.json" )
                             .activate();
         stud3.get( 0 ).logObjectInstance();

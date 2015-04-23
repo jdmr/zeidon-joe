@@ -22,21 +22,49 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 
+import com.quinsoft.zeidon.standardoe.ScalaHelper;
+
 
 /**
- * All methods operating on a task.
+ * <p>
+ * All methods operating on a task.  A task is the basic container for Zeidon Object
+ * Instances (OIs). When a task is no longer referenced all of its OIs will be dropped.
+ * </p>
  *
- * When a task is no longer referenced all of its OIs will be dropped.
+ * <p>
+ * A task is created by the Object Engine and has three main properties:
+ * <ul>
+ *    <li>
+ *    <b>Default application</b>: when calling methods that take a LOD name then the LOD is
+ *            retrieved from the default application.  (Some methods allow for a
+ *            different application to be specified.)
+ *    </li>
+ *    <li>
+ *    <b>Task ID</b>: A unique string that can be used to retrieve the task from the OE.  If
+ *            the ID is not specified when the task is created it will default to a
+ *            unique integer.
+ *    </li>
+ *    <li>
+ *    <b>Persistent</b>: It a task is persistent then the ObjectEngine will keep an internal
+ *            reference to the task to prevent the task from being garbage-collected.
+ *            By default tasks are NOT persistent.
+ *    </li>
+ * </ul></p>
  *
- * @author DG
+ * Tasks are usually created like:
+ * <pre><code>
+ *      Task task = objectEngine.createTask( "DefaultApplication" );
+ * </code></pre>
  *
  */
 public interface Task extends TaskQualification, CacheMap
 {
     /**
-     * Get the list of views for this task.  Includes views without names.
+     * Get the list of views for this task.  Includes views without names.  Use this
+     * method carefully.  It is possible to create a memory leak by holding on to
+     * the list that is returned.
      *
-     * @return
+     * @return list of views for this task.
      */
     Collection<? extends View> getViewList();
 
@@ -44,17 +72,27 @@ public interface Task extends TaskQualification, CacheMap
      * Returns an approximate count of views for this task.  It is approximate because
      * the GC may not have cleaned up some views.
      *
-     * @return
+     * @return view count
      */
     int getViewCount();
 
     /**
      * Get a string ID that uniquely defines this task.  Is not restricted to digits.
-     * @return
+     *
+     * @return task ID
      */
     String getTaskId();
 
+    /**
+     * @deprecated
+     */
+    @Deprecated
     String getUserId();
+
+    /**
+     * @deprecated
+     */
+    @Deprecated
     void setUserId( String userId );
 
     /**
@@ -70,21 +108,84 @@ public interface Task extends TaskQualification, CacheMap
      */
     boolean isValid();
 
+    /**
+     * Commit the list of view in a single transaction.  If the commit fails for one
+     * view then it fails for all of them.
+     *
+     * @param views list of views to commit.
+     *
+     * @return 0
+     */
     int commitMultipleOis( View...views );
+
+    /**
+     * Commit the list of view in a single transaction.  If the commit fails for one
+     * view then it fails for all of them.
+     *
+     * @param views list of views to commit.
+     *
+     * @return 0
+     */
     int commitMultipleOis( CommitOptions options, View...views );
+
+    /**
+     * Commit the list of view in a single transaction.  If the commit fails for one
+     * view then it fails for all of them.
+     *
+     * @param views list of views to commit.
+     *
+     * @return 0
+     */
     int commitMultipleOis( Collection<View> views );
+
+    /**
+     * Commit the list of view in a single transaction.  If the commit fails for one
+     * view then it fails for all of them.
+     *
+     * @param views list of views to commit.
+     *
+     * @return 0
+     */
     int commitMultipleOis( CommitOptions options, Collection<View> views );
 
+    /**
+     * Drop the name for the specified view.
+     *
+     * @param name name to drop.
+     * @param view view that should have this name.  TODO: is this necessary?
+     */
     void dropNameForView( String name, View view );
+
+    /**
+     * Return list of names for the specified view.
+     *
+     * @param view view to find views.
+     *
+     * @return list of names for the specified view.
+     */
     List<String> getViewNameList(View view);
+
+    /**
+     * Set the name of the view inside this task.
+     *
+     * @param name name of the view
+     *
+     * @param view view to be named.
+     */
     void setNameForView( String name, View view );
 
     /**
-     * Sets a description for the task.
+     * Sets a description for this task.  This is for debugging purposes only.
      *
      * @param description
      */
     void setDescription( String description );
+
+    /**
+     * Gets the description for this task.  This is for debugging purposes only.
+     *
+     * @return task description
+     */
     String getDescription();
 
     Lockable getNamedLock( String name );
@@ -104,5 +205,10 @@ public interface Task extends TaskQualification, CacheMap
      */
     void unlockAll( Lock...locks );
 
-
+    /**
+     * Returns a helper object for calling Scala code from the JOE.  Creates one per task.
+     *
+     * @return a task-specific Scala helper.
+     */
+    ScalaHelper getScalaHelper();
 }

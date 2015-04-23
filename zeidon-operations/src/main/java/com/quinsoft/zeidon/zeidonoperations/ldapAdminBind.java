@@ -87,7 +87,7 @@ public class ldapAdminBind {
     }
 
     /*
-     public static void main(String[] args) 
+     public static void main(String[] args)
      {
      Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
      // the keystore that holds trusted root certificates
@@ -99,7 +99,7 @@ public class ldapAdminBind {
      */
 }
 
-/*      
+/*
  ModificationItem[] mods = new ModificationItem[2];
 
  mods[0] = new ModificationItem(DirContext.REPLACE_ATTRIBUTE, new BasicAttribute("unicodePwd", unicodePassword));
